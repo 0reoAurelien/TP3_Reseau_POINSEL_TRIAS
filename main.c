@@ -5,6 +5,7 @@
 #include <string.h>
 #include "tosfs.h"
 
+
 int main(int argc, char *argv[]) {
     if (argc != 2) {
         fprintf(stderr, "Usage: %s <filesystem image file>\n", argv[0]);
@@ -29,6 +30,12 @@ int main(int argc, char *argv[]) {
     // Récupérer le superblock à l'adresse mappée
     struct tosfs_superblock *sb = mapped_fs;
 
+
+
+
+    // Afficher les informations sur le superblock
+    printf("Filesystem Information:\n");
+    printf("Magic number: 0x%02x\n", sb->magic);
     // Vérifier le numéro magique
     if (sb->magic != TOSFS_MAGIC) {
         fprintf(stderr, "Invalid filesystem magic number: 0x%x\n", sb->magic);
@@ -36,13 +43,11 @@ int main(int argc, char *argv[]) {
         close(fd);
         return 1;
     }
-
-    // Afficher les informations sur le superblock
-    printf("Filesystem Information:\n");
-    printf("Magic number: 0x%x\n", sb->magic);
-    printf("Block bitmap: 0x%x\n", sb->block_bitmap);
-    printf("Inode bitmap: 0x%x\n", sb->inode_bitmap);
-    printf("Block size: %u\n", sb->block_size);
+    printf("Block bitmap: 0x%02x\n", sb->block_bitmap);
+    printf(PRINTF_BINARY_PATTERN_INT32,PRINTF_BYTE_TO_BINARY_INT32(sb->block_bitmap));
+    printf("\nInode bitmap: 0x%02x\n", sb->inode_bitmap);
+    printf(PRINTF_BINARY_PATTERN_INT32,PRINTF_BYTE_TO_BINARY_INT32(sb->inode_bitmap));
+    printf("\nBlock size: %u\n", sb->block_size);
     printf("Total blocks: %u\n", sb->blocks);
     printf("Total inodes: %u\n", sb->inodes);
     printf("Root inode: %u\n", sb->root_inode);
