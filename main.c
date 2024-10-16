@@ -35,8 +35,7 @@ static int stat_3is(fuse_ino_t ino, struct stat *stbuf)
 	return 0;
 }
 
-static void getattr_3is(fuse_req_t req, fuse_ino_t ino,
-			     struct fuse_file_info *fi)
+static void getattr_3is(fuse_req_t req, fuse_ino_t ino,struct fuse_file_info *fi)
 {
 	struct stat stbuf;
 
@@ -144,7 +143,55 @@ static struct fuse_lowlevel_ops oper_3is = {
 };
 
 int main(int argc, char *argv[]) {
-    if (argc != 2) {
+
+	int fd = open(argv[1], O_RDWR);
+	if (fd == -1) {
+		perror("open");
+		return 1;
+	}
+
+	// Utilisation de mmap pour mapper le fichier dans la mémoire
+	void *mapped_fs = mmap(NULL, TOSFS_BLOCK_SIZE * 32, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (mapped_fs == MAP_FAILED) {
+		perror("mmap");
+		close(fd);
+		return 1;
+	}
+	struct tosfs_superblock *sb = mapped_fs;
+
+	struct stat * size = malloc(sizeof(struct stat));
+	stat_3is(sb->inodes,size);
+	printf("%i \n",size->st_mode);
+
+	/*struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+	struct fuse_chan *ch;
+	char *mountpoint;
+	int err = -1;
+
+	if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
+		(ch = fuse_mount(mountpoint, &args)) != NULL) {
+		struct fuse_session *se;
+
+		se = fuse_lowlevel_new(&args, &oper_3is,sizeof(oper_3is), NULL);
+		if (se != NULL) {
+			if (fuse_set_signal_handlers(se) != -1) {
+				fuse_session_add_chan(se, ch);
+				err = fuse_session_loop(se);
+				fuse_remove_signal_handlers(se);
+				fuse_session_remove_chan(ch);
+			}
+			fuse_session_destroy(se);
+		}
+		fuse_unmount(mountpoint);
+		}
+	fuse_opt_free_args(&args);
+*/
+	return 0;
+}
+
+
+
+ /*  if (argc != 2) {
         fprintf(stderr, "Usage: %s <filesystem image file>\n", argv[0]);
         return 1;
     }
@@ -193,5 +240,5 @@ int main(int argc, char *argv[]) {
     munmap(mapped_fs, TOSFS_BLOCK_SIZE * 32);
     close(fd);
 
-    return 0;
-}
+    return 0;*/
+
