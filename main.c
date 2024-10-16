@@ -11,7 +11,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Ouvrir le fichier de l'image du système de fichiers
+    // Ouvrir le fichier mit en argument
     int fd = open(argv[1], O_RDWR);
     if (fd == -1) {
         perror("open");
@@ -27,7 +27,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Récupérer le superblock à l'adresse mappée
-    struct tosfs_superblock *sb = (struct tosfs_superblock *) mapped_fs;
+    struct tosfs_superblock *sb = mapped_fs;
 
     // Vérifier le numéro magique
     if (sb->magic != TOSFS_MAGIC) {
