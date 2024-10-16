@@ -9,8 +9,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-
-
 static const char *hello_str = "Hello World!\n";
 static const char *file_name = "test_tofsf_files";
 
@@ -35,35 +33,35 @@ static int stat_3is(fuse_ino_t ino, struct stat *stbuf)
 	return 0;
 }
 
-static void getattr_3is(fuse_req_t req, fuse_ino_t ino,struct fuse_file_info *fi)
-{
+static void getattr_3is(fuse_req_t req, fuse_ino_t ino, struct fuse_file_info *fi) {
 	struct stat stbuf;
 
 	(void) fi;
 
 	memset(&stbuf, 0, sizeof(stbuf));
-	if (stat_3is(ino, &stbuf) == -1)
+	if (stat_3is(ino, &stbuf) == -1) {
 		fuse_reply_err(req, ENOENT);
-	else
+	} else {
 		fuse_reply_attr(req, &stbuf, 1.0);
+	}
 }
 
-static void lookup_3is(fuse_req_t req, fuse_ino_t parent, const char *name)
-{
+
+static void lookup_3is(fuse_req_t req, fuse_ino_t parent, const char *name) {
 	struct fuse_entry_param e;
 
-	if (parent != 1 || strcmp(name, file_name) != 0)
+	if (parent != 1 || strcmp(name, file_name) != 0) {
 		fuse_reply_err(req, ENOENT);
-	else {
+	} else {
 		memset(&e, 0, sizeof(e));
 		e.ino = 2;
 		e.attr_timeout = 1.0;
 		e.entry_timeout = 1.0;
 		stat_3is(e.ino, &e.attr);
-
 		fuse_reply_entry(req, &e);
 	}
 }
+
 
 struct dirbuf {
 	char *p;
@@ -95,24 +93,22 @@ static int reply_buf_limited(fuse_req_t req, const char *buf, size_t bufsize,
 		return fuse_reply_buf(req, NULL, 0);
 }
 
-static void readdir_3is(fuse_req_t req, fuse_ino_t ino, size_t size,
-			     off_t off, struct fuse_file_info *fi)
-{
+static void readdir_3is(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off, struct fuse_file_info *fi) {
 	(void) fi;
 
-	if (ino != 1)
+	if (ino != 1) {
 		fuse_reply_err(req, ENOTDIR);
-	else {
+	} else {
 		struct dirbuf b;
-
 		memset(&b, 0, sizeof(b));
-		dirbuf_add(req, &b, ".", 1);
-		dirbuf_add(req, &b, "..", 1);
-		dirbuf_add(req, &b, file_name, 2);
+		dirbuf_add(req, &b, ".", 1);       // Répertoire courant
+		dirbuf_add(req, &b, "..", 1);      // Parent
+		dirbuf_add(req, &b, file_name, 2); // Fichier présent
 		reply_buf_limited(req, b.p, b.size, off, size);
 		free(b.p);
 	}
 }
+
 
 static void open_3is(fuse_req_t req, fuse_ino_t ino,
 			  struct fuse_file_info *fi)
@@ -125,57 +121,85 @@ static void open_3is(fuse_req_t req, fuse_ino_t ino,
 		fuse_reply_open(req, fi);
 }
 
-static void read_3is(fuse_req_t req, fuse_ino_t ino, size_t size,
-			  off_t off, struct fuse_file_info *fi)
-{
+static void read_3is(fuse_req_t req, fuse_ino_t ino, size_t size, off_t off, struct fuse_file_info *fi) {
 	(void) fi;
 
 	assert(ino == 2);
 	reply_buf_limited(req, hello_str, strlen(hello_str), off, size);
 }
 
+static void create_3is(fuse_req_t req, fuse_ino_t parent, const char *name, mode_t mode, struct fuse_file_info *fi) {
+	if (parent != 1 || strcmp(name, file_name) != 0) {
+		fuse_reply_err(req, EEXIST);
+	} else {
+		struct fuse_entry_param e;
+		memset(&e, 0, sizeof(e));
+		e.ino = 3;  // Numéro d'inode du nouveau fichier
+		e.attr_timeout = 1.0;
+		e.entry_timeout = 1.0;
+		stat_3is(e.ino, &e.attr);
+		fuse_reply_create(req, &e, fi);
+	}
+}
+
+static void write_3is(fuse_req_t req, fuse_ino_t ino, const char *buf, size_t size, off_t off, struct fuse_file_info *fi) {
+	(void) fi;
+
+	if (ino != 2) {
+		fuse_reply_err(req, EISDIR);
+	} else {
+		// Écrire dans le fichier (simuler l'écriture)
+		// Vous pouvez ajouter une logique pour modifier le contenu du fichier
+		fuse_reply_write(req, size);
+	}
+}
+
 static struct fuse_lowlevel_ops oper_3is = {
-	.lookup		= lookup_3is,
-	.getattr	= getattr_3is,
-	.readdir	= readdir_3is,
-	.open		= open_3is,
-	.read		= read_3is,
+	.lookup     = lookup_3is,
+	.getattr    = getattr_3is,
+	.readdir    = readdir_3is,
+	.open       = open_3is,
+	.read       = read_3is,
+	.create     = create_3is,
+	.write      = write_3is,
 };
 
-int main(int argc, char *argv[]) {
-
-	int fd = open(argv[1], O_RDWR);
-	if (fd == -1) {
-		perror("open");
-		return 1;
+void test_getattr(const char *file) {
+	struct stat st;
+	if (stat("test_tosfs_files", &st) == -1){
+		perror("stat");
+	} else {
+		printf("File: %s\n", file);
+		printf("File size: %ld\n", st.st_size);
+		printf("Number of links: %ld\n", st.st_nlink);
+		printf("File mode: %o\n", st.st_mode);
 	}
+}
 
-	// Utilisation de mmap pour mapper le fichier dans la mémoire
-	void *mapped_fs = mmap(NULL, TOSFS_BLOCK_SIZE * 32, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-	if (mapped_fs == MAP_FAILED) {
-		perror("mmap");
-		close(fd);
-		return 1;
+void test_lookup(const char *file) {
+	if (access(file, F_OK) == 0) {
+		printf("File %s exists.\n", file);
+	} else {
+		printf("File %s does not exist.\n", file);
 	}
-	struct tosfs_superblock *sb = mapped_fs;
+}
 
-	struct stat * size = malloc(sizeof(struct stat));
-	stat_3is(sb->inodes,size);
-	printf("%i \n",size->st_mode);
-
-	/*struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
+/*int main(int argc, char *argv[]) {
+	struct fuse_args args = FUSE_ARGS_INIT(argc, argv);
 	struct fuse_chan *ch;
 	char *mountpoint;
 	int err = -1;
-
-	if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 &&
-		(ch = fuse_mount(mountpoint, &args)) != NULL) {
+	if (fuse_parse_cmdline(&args, &mountpoint, NULL, NULL) != -1 && (ch = fuse_mount(mountpoint, &args)) != NULL) {
 		struct fuse_session *se;
+		se = fuse_lowlevel_new(&args, &oper_3is, sizeof(oper_3is), NULL);
 
-		se = fuse_lowlevel_new(&args, &oper_3is,sizeof(oper_3is), NULL);
 		if (se != NULL) {
 			if (fuse_set_signal_handlers(se) != -1) {
 				fuse_session_add_chan(se, ch);
+
+				test_getattr("test_tosfs_files");
+				test_lookup("test_tosfs_files");
+
 				err = fuse_session_loop(se);
 				fuse_remove_signal_handlers(se);
 				fuse_session_remove_chan(ch);
@@ -183,62 +207,14 @@ int main(int argc, char *argv[]) {
 			fuse_session_destroy(se);
 		}
 		fuse_unmount(mountpoint);
-		}
+	}
+
 	fuse_opt_free_args(&args);
-*/
-	return 0;
+	return err ? 1 : 0;
+}*/
+
+//petit main pour tester getattr et lookup car le main au dessus ne fonctionne pas
+int main(int argc, char *argv[]) {
+	test_getattr("test_tosfs_files");
+	test_lookup("test_tosfs_files");
 }
-
-
-
- /*  if (argc != 2) {
-        fprintf(stderr, "Usage: %s <filesystem image file>\n", argv[0]);
-        return 1;
-    }
-
-    // Ouvrir le fichier mit en argument
-    int fd = open(argv[1], O_RDWR);
-    if (fd == -1) {
-        perror("open");
-        return 1;
-    }
-
-    // Utilisation de mmap pour mapper le fichier dans la mémoire
-    void *mapped_fs = mmap(NULL, TOSFS_BLOCK_SIZE * 32, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    if (mapped_fs == MAP_FAILED) {
-        perror("mmap");
-        close(fd);
-        return 1;
-    }
-
-    // Récupérer le superblock à l'adresse mappée
-    struct tosfs_superblock *sb = mapped_fs;
-
-
-
-
-    // Afficher les informations sur le superblock
-    printf("Filesystem Information:\n");
-    printf("Magic number: 0x%02x\n", sb->magic);
-    // Vérifier le numéro magique
-    if (sb->magic != TOSFS_MAGIC) {
-        fprintf(stderr, "Invalid filesystem magic number: 0x%x\n", sb->magic);
-        munmap(mapped_fs, TOSFS_BLOCK_SIZE * 32);
-        close(fd);
-        return 1;
-    }
-    printf("Block bitmap: 0x%02x\n", sb->block_bitmap);
-    printf(PRINTF_BINARY_PATTERN_INT32,PRINTF_BYTE_TO_BINARY_INT32(sb->block_bitmap));
-    printf("\nInode bitmap: 0x%02x\n", sb->inode_bitmap);
-    printf(PRINTF_BINARY_PATTERN_INT32,PRINTF_BYTE_TO_BINARY_INT32(sb->inode_bitmap));
-    printf("\nBlock size: %u\n", sb->block_size);
-    printf("Total blocks: %u\n", sb->blocks);
-    printf("Total inodes: %u\n", sb->inodes);
-    printf("Root inode: %u\n", sb->root_inode);
-
-    // Nettoyage
-    munmap(mapped_fs, TOSFS_BLOCK_SIZE * 32);
-    close(fd);
-
-    return 0;*/
-
